@@ -4,3 +4,4 @@ efiboot/
 syslinux/
 work/
 out/
+airootfs/etc/machine-id
