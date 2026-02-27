@@ -31,8 +31,9 @@ sudo
 sysfsutils
 systemd-sysvcompat
 texinfo
-which
 vi
+which
+xterm
 
 ## Filesystem
 btrfs-progs
@@ -59,19 +60,33 @@ amd-ucode
 intel-ucode
 
 ## X system
-mesa
-mesa-utils
-#nvidia
-nvidia-utils
 xf86-input-libinput
-xf86-video-amdgpu
-xf86-video-ati
 xorg-server
 xorg-xdpyinfo
 xorg-xinit
 xorg-xinput
 xorg-xkill
 xorg-xrandr
+
+## GPU/VM
+nvidia-utils
+mesa
+mesa-utils
+vulkan-intel
+intel-media-driver
+gst-plugin-va
+vpl-gpu-rt
+libva-intel-driver
+open-vm-tools
+xf86-input-vmmouse
+gtkmm3
+vulkan-swrast
+virtualbox-guest-utils
+spice-vdagent
+qemu-guest-agent
+vulkan-virtio
+vulkan-radeon
+eos-hwtool
 
 ## Network hardware
 b43-fwcutter
@@ -128,6 +143,7 @@ pacman-contrib
 pkgfile
 poppler-glib
 power-profiles-daemon
+pv
 rebuild-detector
 reflector
 rsync
@@ -145,8 +161,6 @@ dnsmasq
 ethtool
 iwd
 modemmanager
-nbd
-ndisc6
 net-tools
 netctl
 networkmanager
@@ -155,14 +169,10 @@ networkmanager-openvpn
 nss-mdns
 openconnect
 openvpn
-ppp
-pptpclient
-rp-pppoe
 usb_modeswitch
 vpnc
 whois
 wireless-regdb
-#wireless_tools
 wpa_supplicant
 xl2tpd
 
@@ -172,13 +182,13 @@ bluez-utils
 
 ## Firewall
 firewalld
-python-pyqt5
-python-capng
+firewall-applet
 
 # ISO
 
 ## Live iso specific
 arch-install-scripts
+iso-create-ml
 memtest86+
 memtest86+-efi
 mkinitcpio-archiso
@@ -228,17 +238,36 @@ konsole
 kscreen
 kwallet-pam
 kwayland-integration
-kwin-x11
+kwin
+qt6-wayland
+plasma-wayland-protocols
+openssh
+kdialog
+discover
+flatpak
+gnupg
+kwallet
+kwalletmanager
+kirigami
+kdeclarative
+kcmutils
+qt6-5compat
+libplasma
+kpipewire
+kwayland
+plasma-integration
+nbd
+pybind11
+boost-libs
+xorg-xauth
 libappindicator
 okular
 plasma-browser-integration
 plasma-desktop
 plasma-disks
-plasma-firewall
 plasma-keyboard
 plasma-nm
 plasma-pa
-plasma-x11-session
 plasma-systemmonitor
 plasma-workspace
 powerdevil
@@ -275,29 +304,9 @@ eos-log-tool
 eos-packagelist
 eos-quickstart
 eos-rankmirrors
-nvidia-inst
 rate-mirrors
 reflector-simple
 welcome
 yay
 
 ## Calamares EndeavourOS
-calamares
-ckbcomp
-os-prober
-
-# VM SUPPORT
-
-## Qemu
-qemu-guest-agent
-
-## Spice
-spice-vdagent
-
-## Virtual-box
-virtualbox-guest-utils
-
-## VMware
-open-vm-tools
-xf86-input-vmmouse
-xf86-video-qxl

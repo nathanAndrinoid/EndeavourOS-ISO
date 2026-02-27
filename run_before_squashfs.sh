@@ -9,7 +9,7 @@ script_path=$(readlink -f "${0%/*}")
 work_dir="work"
 
 # Adapted from AIS. An excellent bit of code!
-# all pathes must be in quotation marks "path/to/file/or/folder" for now.
+# all path must be in quotation marks "path/to/file/or/folder" for now.
 
 arch_chroot() {
     arch-chroot "${script_path}/${work_dir}/x86_64/airootfs" /bin/bash -c "${1}"
@@ -17,7 +17,9 @@ arch_chroot() {
 
 do_merge() {
 
-arch_chroot "$(cat << EOF
+# Build the chroot script with a quoted heredoc so variables/commands
+# are evaluated inside the chroot, not by the host shell.
+chroot_script=$(cat << 'CHROOT_EOF'
 
 echo "##############################"
 echo "# start chrooted commandlist #"
@@ -66,10 +68,47 @@ echo "---> Add builddate to motd --->"
 cat "/usr/lib/endeavouros-release" >> "/etc/motd"
 echo "------------------" >> "/etc/motd"
 
-echo "---> Install locally builded packages on ISO (place packages under airootfs/root/packages) --->"
+echo "---> Install locally built packages on ISO (place packages under airootfs/root/packages) --->"
 echo "--> content of /root/packages:"
 ls "/root/packages/"
 echo "end of content of /root/packages. <---"
+
+echo "---> generating actual ranked mirrorlist to fetch packages for offline install---> "
+echo "---> back up original to replace later---> "
+cp "/etc/pacman.d/mirrorlist" "/etc/pacman.d/mirrorlist.later"
+mkdir -p "/etc/pacman.d/"
+echo "---> generate mirrorlist safely ---> "
+# Source project-managed get_country helper if present inside the chroot.
+if [[ -f "/root/get_country.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "/root/get_country.sh"
+fi
+COUNTRY="$(get_country)"
+
+if [[ -n "$COUNTRY" ]]; then
+  reflector \
+    --country "$COUNTRY" \
+    --protocol "https" \
+    --sort "rate" \
+    --latest "10" \
+    --save "/etc/pacman.d/mirrorlist"
+else
+  reflector \
+    --protocol "https" \
+    --sort "rate" \
+    --latest "20" \
+    --save "/etc/pacman.d/mirrorlist"
+fi
+
+echo "---> generate mirrorlist done ---> "
+
+# Copy custom packages to /usr/share/packages so the Calamares offline
+# installer and ssh_setup_script.sh can find them after squashfs.
+# This directory already exists from the pacman -Sw step later, but
+# create it now in case package ordering changes.
+mkdir -p "/usr/share/packages"
+cp -v "/root/packages/"*".pkg.tar.zst" "/usr/share/packages/" 2>/dev/null || true
+
 pacman -Sy
 pacman -U --noconfirm --needed -- "/root/packages/"*".pkg.tar.zst"
 rm -rf "/root/packages/"
@@ -89,23 +128,47 @@ chmod 644 "/usr/share/endeavouros/backgrounds/"*".png"
 echo "---> install bash configs back into /etc/skel for offline install target --->"
 cp -af "/root/filebackups/"{".bashrc",".bash_profile"} "/etc/skel/"
 
-echo "---> Move blacklisting nouveau out of ISO (copy back to target for offline installs) --->"
-mv "/usr/lib/modprobe.d/nvidia-utils.conf" "/etc/calamares/files/nv-modprobe"
-mv "/usr/lib/modules-load.d/nvidia-utils.conf" "/etc/calamares/files/nv-modules-load"
+echo "---> remove blacklisting nouveau out of ISO (nvidia-utls blacklist configs) --->"
+rm "/usr/lib/modprobe.d/nvidia-utils.conf"
+rm "/usr/lib/modules-load.d/nvidia-utils.conf"
 
 echo "---> get needed packages for offline installs --->"
 mkdir -p "/usr/share/packages"
 pacman -Syy
-pacman -Sw --noconfirm --cachedir "/usr/share/packages" grub eos-dracut kernel-install-for-dracut os-prober xf86-video-intel nvidia-open nvidia-hook nvidia-inst broadcom-wl
+pacman -Sw --noconfirm --cachedir "/usr/share/packages" grub eos-dracut kernel-install-for-dracut os-prober xf86-video-intel nvidia-open nvidia-hook nvidia-utils nvidia-inst broadcom-wl
 
 echo "---> Clean pacman log and package cache --->"
 rm "/var/log/pacman.log"
 # pacman -Scc seem to fail so:
 rm -rf "/var/cache/pacman/pkg/"
 
-echo "---> Get mirrorlist for offline installs --->"
-wget -qN --show-progress -P "/etc/pacman.d/" "https://raw.githubusercontent.com/endeavouros-team/EndeavourOS-ISO/main/mirrorlist"
+echo "---> replace mirrorlist with original again (if valid) --->"
+if [[ -f /etc/pacman.d/mirrorlist.later ]] && \
+   grep -qE "^[[:space:]]*Server[[:space:]]*=" /etc/pacman.d/mirrorlist.later; then
+  mv /etc/pacman.d/mirrorlist.later /etc/pacman.d/mirrorlist
+else
+  echo "---> original mirrorlist missing or without servers; keeping generated mirrorlist --->"
+  rm -f /etc/pacman.d/mirrorlist.later
+fi
 
+echo "---> final mirrorlist safety check --->"
+if ! grep -qE '^[[:space:]]*Server[[:space:]]*=' /etc/pacman.d/mirrorlist; then
+  echo "---> WARNING: mirrorlist has no Server lines after restore! Writing fallback --->"
+  cat > /etc/pacman.d/mirrorlist <<'FALLBACK'
+# Fallback servers written by run_before_squashfs.sh safety check
+Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch
+Server = https://mirror.rackspace.com/archlinux/$repo/os/$arch
+FALLBACK
+fi
+
+if ! grep -qE '^[[:space:]]*Server[[:space:]]*=' /etc/pacman.d/endeavouros-mirrorlist 2>/dev/null; then
+  echo "---> WARNING: endeavouros-mirrorlist has no Server lines! Writing fallback --->"
+  cat > /etc/pacman.d/endeavouros-mirrorlist <<'FALLBACK'
+# Fallback servers written by run_before_squashfs.sh safety check
+Server = https://mirror.alpix.eu/endeavouros/repo/$repo/$arch
+Server = https://us.mirror.endeavouros.com/endeavouros/repo/$repo/$arch
+FALLBACK
+fi
 
 echo "---> create package versions file --->"
 pacman -Qs | grep "/calamares " | cut -c7- > iso_package_versions
@@ -120,8 +183,9 @@ echo "############################"
 echo "# end chrooted commandlist #"
 echo "############################"
 
-EOF
-)"
+CHROOT_EOF
+)
+arch_chroot "$chroot_script"
 }
 
 #################################
@@ -129,3 +193,4 @@ EOF
 #################################
 
 do_merge
+
