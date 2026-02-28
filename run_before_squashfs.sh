@@ -8,11 +8,20 @@
 script_path=$(readlink -f "${0%/*}")
 work_dir="work"
 
+# When the build script passes -w <dir> to mkarchiso the airootfs is created
+# there, not in the default "work/" subdir next to this script.
+# The build script exports AIROOTFS_WORK_DIR so we target the right tree.
+if [[ -n "${AIROOTFS_WORK_DIR:-}" ]]; then
+    airootfs_dir="${AIROOTFS_WORK_DIR}/x86_64/airootfs"
+else
+    airootfs_dir="${script_path}/${work_dir}/x86_64/airootfs"
+fi
+
 # Adapted from AIS. An excellent bit of code!
 # all path must be in quotation marks "path/to/file/or/folder" for now.
 
 arch_chroot() {
-    arch-chroot "${script_path}/${work_dir}/x86_64/airootfs" /bin/bash -c "${1}"
+    arch-chroot "${airootfs_dir}" /bin/bash -c "${1}"
 }
 
 do_merge() {
