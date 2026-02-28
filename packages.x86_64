@@ -205,6 +205,7 @@ gparted
 grsync
 partitionmanager
 hdparm
+os-prober
 
 # DESKTOP
 
